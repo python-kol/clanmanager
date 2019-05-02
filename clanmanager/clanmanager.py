@@ -21,6 +21,7 @@ def main():
 
     bot = commands.Bot("$")
     bot.kol = kol
+    bot.raid_channel = int(os.getenv("DISCORD_CHANNEL"))
     bot.add_cog(Verification(bot))
     bot.add_cog(RaidLogMonitor(bot))
     bot.run(os.getenv("DISCORD_TOKEN"))
