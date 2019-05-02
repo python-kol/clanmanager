@@ -2,3 +2,4 @@ src/.pydevproject
 *.pyc
 *.egg-info/
 .env
+*.db
