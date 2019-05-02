@@ -1,3 +1,4 @@
+from asyncio import sleep
 from discord.ext import commands
 from itertools import cycle
 from pykollib import Clan
