@@ -1,0 +1,4 @@
+src/.pydevproject
+*.pyc
+*.egg-info/
+.env
