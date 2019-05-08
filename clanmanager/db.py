@@ -1,6 +1,5 @@
-import os
 import peewee
-
+from datetime import datetime, date
 
 db = peewee.SqliteDatabase(None)
 
@@ -15,17 +14,21 @@ class User(Model):
     token = peewee.TextField(null=True)
 
 
-class Dungeon(Model):
+class Raid(Model):
+    raid_id = peewee.IntegerField(primary_key=True)
+    raid_name = peewee.TextField()
     clan_id = peewee.IntegerField()
     clan_name = peewee.TextField()
-    type = peewee.TextField()
-    raid_id = peewee.IntegerField(default=0)
-    status = peewee.TextField(default="{}")
+    summary = peewee.TextField(default="{}")
+    start = peewee.DateField(default=date.today)
+    end = peewee.DateField(null=True)
 
 
 class Log(Model):
-    dungeon = peewee.ForeignKeyField(Dungeon, backref="logs")
-    zone = peewee.TextField()
+    raid = peewee.ForeignKeyField(Raid, backref="logs")
+    category = peewee.TextField()
     username = peewee.TextField()
-    userid = peewee.IntegerField()
+    user_id = peewee.IntegerField()
     event = peewee.TextField()
+    turns = peewee.IntegerField(default=0)
+    last_updated = peewee.DateTimeField(default=datetime.now)
