@@ -1,5 +1,6 @@
 from discord.ext import commands
 from pykollib import Clan
+from pykollib.Error import ClanPermissionsError
 from time import time
 from tqdm import tqdm
 from peewee import SQL, JOIN, fn
@@ -8,8 +9,10 @@ import json
 import re
 import traceback
 from tabulate import tabulate
+import sys
 
-from .util import pm_only
+from .DiscordIO import DiscordIO
+from .util import pm_only, team_only
 from .db import db, Raid, Log
 
 event_pattern = re.compile(r"^([^\(]+) \(#([0-9]+)\) (.*?)( x [0-9,]+)?( \(([0-9]+) turns?\))?$")
@@ -42,42 +45,45 @@ class RaidLogs(commands.Cog):
     def __init__(self, bot, clans=[]):
         self.bot = bot
         self.clans = clans
-        self.bg_task = self.bot.loop.create_task(self.monitor_clans(clans))
+        # self.bg_task = self.bot.loop.create_task(self.monitor_clans(clans))
 
     async def get_channel(self, context, channel_name: str):
         if channel_name is None:
             return None
 
         try:
-            channel = next(c for c in self.bot.get_all_channels() if c.name == channel_name)
-            member = channel.guild.get_member(context.author.id)
-            if member is None or member.top_role.position < 13:
-                await context.send("You do not have permission to post to that channel")
-                return None
+            return next(c for c in self.bot.get_all_channels() if c.name == channel_name)
         except StopIteration:
             await context.send("Cannot find a channel called {}".format(channel_name))
             return None
 
-        return channel
-
-    async def parse_clan_raid_logs(self, clan_details, message_stream = None):
+    async def parse_clan_raid_logs(self, clan_details, message_stream = sys.stdout):
         clan_name, clan_id = clan_details
         kol = self.bot.kol
 
         clan = Clan(kol, id=clan_id)
         await clan.join()
 
-        current = await clan.get_raids()
+        try:
+            current = await clan.get_raids()
+        except ClanPermissionsError:
+            message_stream.write("Skipping {} due to lack of basement permissions".format(clan_name))
+            return
+
         previous = await clan.get_previous_raids()
 
         tasks = []
-        raids = []
+        created_raids = []
+        updated_raids = []
 
-        for data in tqdm(current + previous, desc="Discovering previous raid logs in {}".format(clan_name), unit="raid logs", leave=False):
+        for data in tqdm(current + previous, desc="Discovering previous raid logs in {}".format(clan_name), file=message_stream, unit="raid logs", leave=False):
             raid = Raid.get_or_none(raid_id=data["id"])
+
+            raids_list = updated_raids
 
             if raid is None:
                 raid = Raid(raid_id=data["id"], raid_name=data["name"], clan_id=clan_id, clan_name=clan_name)
+                raids_list = created_raids
 
             if "events" not in data and raid.end is None:
                 raid.start = data["start"]
@@ -85,9 +91,10 @@ class RaidLogs(commands.Cog):
                 tasks += [asyncio.ensure_future(clan.get_raid_log(data["id"]))]
 
             if raid.is_dirty():
-                raids.append(raid)
+                raids_list.append(raid)
 
-        Raid.bulk_create(raids, batch_size=50)
+        Raid.bulk_create(created_raids, batch_size=50)
+        Raid.bulk_update(updated_raids, fields=[Raid.start, Raid.end], batch_size=50)
 
         raids_data = current + [await t for t in tqdm(asyncio.as_completed(tasks), desc="Loading previous raid logs in {}".format(clan_name), unit="raid logs", total=len(tasks), leave=False, file=message_stream, ascii=False)]
 
@@ -147,25 +154,33 @@ class RaidLogs(commands.Cog):
                     raid.summary = json.dumps(data["summary"])
                     raid.save()
 
-    async def monitor_clans(self, clans, message_stream = None):
+    async def monitor_clans(self, clans):
         try:
             bot = self.bot
             await bot.wait_until_ready()
 
             if len(clans) == 0:
-                clans = [(bot.kol.preferences["clanName"], bot.kol.preferences["clanId"])]
-
-            clans.append(None)
+                clans = [(bot.kol.state["clan_name"], bot.kol.state["clan_id"])]
 
             for clan in clans:
-                if clan is None:
-                    await asyncio.sleep(10)
-                    continue
-                await self.parse_clan_raid_logs(clan, message_stream)
+                await self.parse_clan_raid_logs(clan)
+
         except Exception:
             print(traceback.format_exc())
 
+    @commands.command(name="parse_raids")
+    @team_only()
+    @pm_only()
+    async def parse_clans(self, context):
+        message = await context.send("Initializing display")
+        message_stream = DiscordIO(message)
+        for clan in self.clans:
+            await self.parse_clan_raid_logs(clan, message_stream)
+        message_stream.print("Raid parsing complete")
+
+
     @commands.command(name="skills")
+    @team_only()
     @pm_only()
     async def skills(self, context, limit: int = None, channel_name: str = None):
         channel = await self.get_channel(context, channel_name)
@@ -202,6 +217,7 @@ class RaidLogs(commands.Cog):
             await context.send(message)
 
     @commands.command(name="summary")
+    @team_only()
     @pm_only()
     async def summary(self, context, channel_name: str = None, description: str = None):
         """

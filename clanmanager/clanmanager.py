@@ -29,6 +29,7 @@ async def main():
 
         bot = commands.Bot("$")
         bot.kol = kol
+        bot.raid_guild = int(os.getenv("DISCORD_GUILD"))
         bot.raid_channel = int(os.getenv("DISCORD_CHANNEL"))
         bot.add_cog(Verification(bot))
         bot.add_cog(RaidLogs(bot, clans))
