@@ -1,10 +1,17 @@
+import asyncio
 from io import StringIO
 
 class DiscordIO(StringIO):
+    encoding = "utf-8"
+
     def __init__(self, message, **kwargs):
         super().__init__(newline="", **kwargs)
         self.message = message
         self._prev_content = ""
+
+    def print(self, line):
+        self.write(line)
+        self.flush()
 
     def write(self, line):
         cursor = 0
