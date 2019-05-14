@@ -6,6 +6,7 @@ import os
 
 from .db import db, User, Raid, Log
 from .Verification import Verification
+from .Whitelist import Whitelist
 from .RaidLogs import RaidLogs
 
 load_dotenv()
@@ -33,6 +34,7 @@ async def main():
         bot.raid_channel = int(os.getenv("DISCORD_CHANNEL"))
         bot.add_cog(Verification(bot))
         bot.add_cog(RaidLogs(bot, clans))
+        bot.add_cog(Whitelist(bot, clans))
         await bot.login(os.getenv("DISCORD_TOKEN"))
         await bot.connect()
 
