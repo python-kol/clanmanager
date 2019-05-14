@@ -143,9 +143,6 @@ class RaidLogs(commands.Cog):
                             log.turns = turns
                             log.last_updated = time()
 
-                        if raid.is_dirty():
-                            raids.append(raid)
-
                         logs.append(log)
 
                 with db.atomic():
