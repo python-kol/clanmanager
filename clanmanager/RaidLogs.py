@@ -2,6 +2,7 @@ from discord.ext import commands
 from pykollib import Clan
 from pykollib.Error import ClanPermissionsError
 from time import time
+from datetime import datetime, timedelta
 from tqdm import tqdm
 from peewee import SQL, JOIN, fn
 import asyncio
@@ -179,8 +180,10 @@ class RaidLogs(commands.Cog):
     @commands.command(name="skills")
     @team_only()
     @pm_only()
-    async def skills(self, context, limit: int = None, channel_name: str = None):
+    async def skills(self, context, since: str = None, limit: int = None, channel_name: str = None):
         channel = await self.get_channel(context, channel_name)
+
+        since = datetime.strptime(since, "%Y%m%d") if since is not None else datetime.now() - timedelta(days=365)
 
         if limit is None:
             limit = len(self.clans) * 3
@@ -190,7 +193,8 @@ class RaidLogs(commands.Cog):
         Skills = Log.alias()
         skills_query = Skills.select(Skills.user_id,
                                      fn.COUNT(Skills.id).alias("skills"))\
-                             .where(Skills.event.startswith("used The Machine"))\
+                             .join_from(Skills, Raid)\
+                             .where(Skills.event.startswith("used The Machine"), Raid.start >= since)\
                              .group_by(Skills.user_id)\
                              .alias("sq")
 
@@ -198,7 +202,7 @@ class RaidLogs(commands.Cog):
                                  (fn.SUM(Log.turns) / (fn.IFNULL(skills_query.c.skills, 0) + 0.5)).alias("Ranking"))\
                          .join_from(Log, skills_query, JOIN.LEFT_OUTER, on=(Log.user_id == skills_query.c.user_id))\
                          .join_from(Log, Raid)\
-                         .where(Log.event.startswith("defeated "), Raid.raid_name == "dreadsylvania")\
+                         .where(Log.event.startswith("defeated "), Raid.raid_name == "dreadsylvania", Raid.start >= since)\
                          .group_by(Log.user_id)\
                          .order_by(SQL("ranking").desc())\
                          .limit(limit)
