@@ -11,7 +11,7 @@ class Verification(commands.Cog):
 
     @commands.command(name="associate")
     @pm_only()
-    async def associate(self, context, kol_id: int = None):
+    async def associate(self, context, kol_id = None):
         """ Member is asking to associate their Discord and KoL accounts """
         if kol_id is None:
             await context.send("Please specify your KoL id")

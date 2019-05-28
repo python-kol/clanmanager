@@ -10,6 +10,7 @@ class DiscordIO(StringIO):
         self._prev_content = ""
 
     def print(self, line):
+        self.seek(0)
         self.write(line)
         self.flush()
 
