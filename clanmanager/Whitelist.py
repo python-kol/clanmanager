@@ -1,5 +1,6 @@
 from tqdm import tqdm
 from discord.ext import commands
+from datetime import date
 
 from .util import team_only
 from .DiscordIO import DiscordIO
@@ -34,8 +35,19 @@ class Whitelist(commands.Cog):
         result = "Whitelisting complete\n"
         with tqdm(self.clans, desc="Adding user to clans", file=message_stream, bar_format="{l_bar}`{bar}`|") as p:
             for clan_name, clan_id in p:
-                await kol.join_clan(id=clan_id)
-                success = await kol.clan.add_user_to_whitelist(player)
+                success = await kol.join_clan(id=clan_id)
+                if success is False:
+                    result += "* Joining *{}* failed\n".format(clan_name)
+                    continue
+
+                ranks = await kol.clan.get_ranks()
+                rank = next((r for r in ranks if r["name"].lower() == "dungeon runner"), None)
+
+                if rank is None:
+                    result += "* No role matching *Dungeon Runner* found in *{}*\n".format(clan_name)
+                    continue
+
+                success = await kol.clan.add_user_to_whitelist(player, rank=rank["id"], title="Added by ASSistant ({})".format(date.today()))
                 if success is False:
                     result += "* Whitelisting to *{}* failed\n".format(clan_name)
 
