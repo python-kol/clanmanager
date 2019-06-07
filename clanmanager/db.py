@@ -15,8 +15,8 @@ class User(Model):
 
 
 class Raid(Model):
-    raid_id = peewee.IntegerField(primary_key=True)
-    raid_name = peewee.TextField()
+    id = peewee.IntegerField(primary_key=True)
+    name = peewee.TextField()
     clan_id = peewee.IntegerField()
     clan_name = peewee.TextField()
     summary = peewee.TextField(default="{}")
@@ -29,6 +29,7 @@ class Log(Model):
     category = peewee.TextField()
     username = peewee.TextField()
     user_id = peewee.IntegerField()
-    event = peewee.TextField()
+    action = peewee.TextField()
+    data = peewee.TextField()
     turns = peewee.IntegerField(default=0)
     last_updated = peewee.DateTimeField(default=datetime.now)
